@@ -44,4 +44,43 @@ ORDER BY total_revenue DESC;
 
 ---
 
+### Q2: What's the month-over-month revenue growth across the entire store — did revenue go up or down each month, and by how much?
+
+**Query:** [`queries/q2_mom_revenue_growth.sql`](queries/q2_mom_revenue_growth.sql)
+
+```sql
+SELECT 
+    sales_month,
+    total_revenue,
+    previous_month_sales,
+    total_revenue - previous_month_sales AS revenue_change,
+    ROUND(
+        (total_revenue - previous_month_sales) / previous_month_sales * 100, 
+    2) AS growth_pct
+FROM (
+    SELECT sales_month, total_revenue,
+           LAG(total_revenue, 1) OVER (ORDER BY sales_month) AS previous_month_sales
+    FROM (
+        SELECT DATE_TRUNC('Month', o.order_purchase_timestamp) AS sales_month,
+               SUM(oi.price) AS total_revenue
+        FROM read_csv_auto('olist_orders_dataset.csv') o
+        JOIN read_csv_auto('olist_order_items_dataset.csv') oi
+            ON o.order_id = oi.order_id
+        GROUP BY sales_month
+    ) monthly
+) with_lag
+ORDER BY sales_month;
+```
+
+**Findings:**
+
+Before trusting the month-over-month percentages, I checked the raw revenue by month and found two data quality issues at the edges of the dataset:
+
+- **Launch period (Sept–Nov 2016):** revenue was R$267.36, R$49,507.66, and R$10.90 respectively — the store was just starting, so these early months are extremely low-volume and unstable. This is what produced the enormous 18,417% and 1,103,688% "growth" spikes in the raw output — a mathematical artifact of dividing by a near-zero prior month, not real business growth.
+- **Final month (Sept 2018):** revenue was only R$145, compared to a full month's typical revenue elsewhere in the dataset. This is a data collection cutoff (the dataset ends mid-month), not an actual revenue crash — it's the source of the -99.98% drop at the end of the series.
+
+**Excluding these three edge months**, the stable trend (2017 through mid-2018) shows month-over-month growth mostly ranging between **-26% and +52%**, with no single month showing catastrophic, sustained decline. Revenue growth is volatile month-to-month rather than steadily trending in one direction, which is typical for a marketplace still in a growth phase — worth investigating seasonality (e.g. holiday months) as a follow-up question.
+
+---
+
 *More questions and queries coming soon as this project develops.*
