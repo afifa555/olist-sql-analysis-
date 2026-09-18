@@ -1,0 +1,23 @@
+SELECT product_category_name,
+product_id,
+total_revenue
+FROM (
+SELECT
+p.product_category_name,
+oi.product_id,
+SUM(oi.price) AS total_revenue,
+ROW_NUMBER() OVER (
+PARTITION BY p.product_category_name
+ORDER BY SUM(oi.price) DESC
+) AS rn
+FROM read_csv_auto('/Users/afifagilani/Documents/sql project 1st/olist_dataset_9csvs/olist_products_dataset.csv') p
+JOIN read_csv_auto('/Users/afifagilani/Documents/sql project 1st/olist_dataset_9csvs/olist_order_items_dataset.csv') oi
+ON p.product_id = oi.product_id
+GROUP BY
+p.product_category_name,
+oi.product_id
+) ranked_products
+WHERE rn <= 3
+ORDER BY
+product_category_name,
+total_revenue DESC;
